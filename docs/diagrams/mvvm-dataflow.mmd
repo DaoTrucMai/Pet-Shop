@@ -1,0 +1,21 @@
+%% MVVM Data Flow - Cach du lieu di chuyen giua cac tang
+sequenceDiagram
+    autonumber
+    participant U as Nguoi dung
+    participant V as View (Activity/Fragment)
+    participant VM as ViewModel
+    participant R as Repository
+    participant FS as Firebase / API
+    participant LD as LiveData
+
+    U->>V: Tuong tac (click, type,...)
+    V->>VM: Goi method (loadCart, login,...)
+    VM->>R: Goi tac vu I/O
+    R->>FS: Firestore query / OkHttp call
+    FS-->>R: Snapshot / Response
+    R-->>VM: Callback (data hoac error)
+    VM->>LD: postValue / setValue
+    LD-->>V: observe -> cap nhat UI
+    V-->>U: Hien thi ket qua
+
+    Note over VM,LD: ViewModel song theo lifecycle Activity/Fragment<br/>LiveData tu dong huy listener khi View destroy

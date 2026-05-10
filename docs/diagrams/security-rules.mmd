@@ -1,0 +1,28 @@
+%% Tom tat Firestore Security Rules logic
+flowchart TD
+    REQ[Request tu Android Client] --> AUTH{Da xac thuc?}
+    AUTH -- Khong --> DENY[DENY]
+    AUTH -- Co --> ROLE{Role nguoi dung?}
+
+    ROLE -- ADMIN --> A1[Read/Write tat ca collection]
+    ROLE -- CUSTOMER --> C{Truy cap collection nao?}
+
+    C --> CC1[users/uid : chi cua minh]
+    C --> CC2[pets, foods, categories, vouchers, promotions : chi READ]
+    C --> CC3[carts/uid : chi cua minh]
+    C --> CC4[orders : tao moi cua minh, READ cua minh]
+    C --> CC5[notifications : READ cua minh, mark isRead]
+    C --> CC6[return_requests : tao moi cua minh, READ cua minh]
+    C --> CC7[addresses : CRUD cua minh]
+    C --> CC8[users/uid/sessions/* : CRUD cua minh]
+
+    DENY -.-> END([Tu choi])
+    A1 -.-> OK([Cho phep])
+    CC1 -.-> OK
+    CC2 -.-> OK
+    CC3 -.-> OK
+    CC4 -.-> OK
+    CC5 -.-> OK
+    CC6 -.-> OK
+    CC7 -.-> OK
+    CC8 -.-> OK

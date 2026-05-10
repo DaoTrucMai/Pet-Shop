@@ -1,0 +1,8 @@
+%% Luong du lieu thanh toan VNPay
+flowchart LR
+    A[App PetShop] -- "1. Build URL HMAC-SHA512" --> B[VNPay Sandbox vpcpay.html]
+    B -- "2. User chon ngan hang + OTP" --> C[Cong VNPay]
+    C -- "3. Redirect deep link" --> D["VNPayResultActivity vnp_ResponseCode"]
+    D -- "4. completeVNPayOrder Transaction" --> E[Firestore orders + foods/pets]
+    E -- "5. Notification" --> F[NotificationRepository]
+    F -- "6. SnapshotListener" --> A

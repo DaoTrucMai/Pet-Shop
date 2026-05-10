@@ -1,0 +1,23 @@
+%% Admin Journey
+flowchart LR
+    A([Admin login]) --> B[AdminActivity Dashboard]
+    B --> C[9 chi so real-time]
+
+    B --> D1[Quan ly Users]
+    B --> D2[Quan ly Categories]
+    B --> D3[Quan ly Pets]
+    B --> D4[Quan ly Foods]
+    B --> D5[Quan ly Promotions]
+    B --> D6[Quan ly Vouchers]
+    B --> D7[Quan ly Orders]
+    B --> D8[Duyet Returns]
+
+    D3 --> E1[Add/Edit Pet + Upload anh/video]
+    D4 --> E2[Add/Edit Food + Cap nhat stock]
+    D5 --> E3[Add/Edit Promotion]
+    D6 --> E4[Add/Edit Voucher --> auto Notification]
+    D7 --> E5[Update status: PENDING -> ... -> DELIVERED]
+    D8 --> E6[Approve / Reject / Refund]
+
+    E5 --> F[Notification gui khach hang]
+    E6 --> F

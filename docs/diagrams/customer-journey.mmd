@@ -1,0 +1,28 @@
+%% Customer Journey - Hanh trinh khach hang
+flowchart LR
+    A([Mo app]) --> B[Splash 1.5s]
+    B --> C{Da login?}
+    C -- Chua --> D[Home Guest]
+    C -- Roi --> E[Home Customer]
+
+    D --> F[Login / Register / OTP]
+    F --> E
+
+    E --> G[Search / Browse]
+    G --> H[Detail Pet/Food]
+    H --> I[Add to Cart]
+    I --> J[Cart]
+    J --> K[Checkout]
+    K --> L{Payment?}
+    L -- COD --> M[Order PENDING]
+    L -- VNPay --> N[VNPay WebView]
+    N --> M
+
+    M --> O[Order History]
+    O --> P{Status?}
+    P -- Delivered --> Q[Review / Return Request]
+    P -- Pending --> R[Cancel Order]
+
+    E --> S[Notification]
+    E --> T[Chat AI]
+    E --> Profile[Profile / Address]

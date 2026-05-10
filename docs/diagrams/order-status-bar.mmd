@@ -1,0 +1,16 @@
+%% Chuoi trang thai don hang (timeline hien thi cho khach)
+flowchart LR
+    S1["1. Cho xac nhan PENDING"] --> S2["2. Da xac nhan CONFIRMED"]
+    S2 --> S3["3. Dang chuan bi PREPARING"]
+    S3 --> S4["4. Dang giao SHIPPING"]
+    S4 --> S5["5. Da giao DELIVERED"]
+    S5 --> S6["6. Hoan thanh COMPLETED"]
+    S6 -.->|Yeu cau hoan tra| R["RETURN_REQUESTED"]
+    R --> RA["RETURN_APPROVED"]
+    RA --> RF["REFUNDED"]
+
+    classDef step fill:#FFD580,stroke:#E09010,color:#1A1A1A,font-weight:bold
+    classDef ret  fill:#FFE4E1,stroke:#FF3B30,color:#FF3B30,font-weight:bold
+
+    class S1,S2,S3,S4,S5,S6 step
+    class R,RA,RF ret
