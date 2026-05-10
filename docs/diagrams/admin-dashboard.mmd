@@ -1,0 +1,22 @@
+%% Sequence Diagram - Admin Dashboard real-time
+sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant AV as AdminActivity
+    participant VM as AdminViewModel
+    participant FS as Firestore
+    participant LD as LiveData
+
+    A->>AV: Mở AdminActivity
+    AV->>VM: startListening()
+    VM->>FS: addSnapshotListener("orders")
+    VM->>FS: addSnapshotListener("users")
+
+    loop Mỗi khi có thay đổi
+        FS-->>VM: snapshot orders
+        FS-->>VM: snapshot users
+        VM->>VM: calculateOrderStats()
+        Note over VM: – COD: chỉ tính khi DELIVERED/COMPLETED<br/>– VNPAY: tính khi PAID<br/>– Doanh thu thực = revenue – refund
+        VM->>LD: postValue(totalRevenue, pending, ...)
+        LD-->>AV: observe → cập nhật 9 tile
+    end

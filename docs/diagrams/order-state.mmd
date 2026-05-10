@@ -1,0 +1,26 @@
+%% State Diagram - Trạng thái đơn hàng
+stateDiagram-v2
+    [*] --> WAITING_PAYMENT : VNPay
+    [*] --> PENDING : COD
+
+    WAITING_PAYMENT --> PENDING : Thanh toán thành công
+    WAITING_PAYMENT --> CANCELLED : Hết hạn / Khách hủy
+
+    PENDING --> CONFIRMED : Admin xác nhận
+    PENDING --> CANCELLED : Khách / Admin hủy
+
+    CONFIRMED --> PREPARING
+    PREPARING --> SHIPPING
+    SHIPPING --> DELIVERED
+    DELIVERED --> COMPLETED
+
+    DELIVERED --> RETURN_REQUESTED : Khách yêu cầu hoàn trả
+    COMPLETED --> RETURN_REQUESTED
+
+    RETURN_REQUESTED --> RETURN_APPROVED : Admin duyệt
+    RETURN_REQUESTED --> COMPLETED : Admin từ chối
+    RETURN_APPROVED --> REFUNDED : Đã hoàn tiền
+
+    CANCELLED --> [*]
+    COMPLETED --> [*]
+    REFUNDED --> [*]

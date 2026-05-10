@@ -1,0 +1,24 @@
+%% Flowchart - AI Chatbot (RAG nhe)
+flowchart LR
+    U["User nhap cau hoi + anh kem (tuy chon)"] --> V[ChatViewModel]
+    V --> CTX[Build Context]
+
+    subgraph DataSrc["Lay du lieu san pham"]
+        P1[(pets)]
+        P2[(foods)]
+        P3[(vouchers)]
+        P4[(promotions)]
+        P5[(orders cua user)]
+    end
+
+    P1 --> CTX
+    P2 --> CTX
+    P3 --> CTX
+    P4 --> CTX
+    P5 --> CTX
+
+    CTX --> PROMPT["System Prompt + Context + Lich su chat (sliding window)"]
+    PROMPT --> API["OkHttp POST openai.com/v1/chat/completions model=gpt-4o-mini"]
+    API --> RESP[Response JSON]
+    RESP --> UI["Hien thi bubble bot Markdown + Image"]
+    UI --> SAVE["Luu chat_sessions / chat_messages - Login: Firestore - Guest: SharedPrefs (50 tin)"]

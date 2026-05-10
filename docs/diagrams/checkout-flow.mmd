@@ -1,0 +1,26 @@
+%% Activity / Flowchart - Dat hang & Thanh toan
+flowchart TD
+    S0([Mo gio hang]) --> A{Co san pham?}
+    A -- Khong --> Empty[Hien thi gio trong] --> Stop([Ket thuc])
+    A -- Co --> B["Nhan Thanh toan"]
+    B --> C[CheckoutActivity]
+    C --> D[Chon hoac Them dia chi]
+    D --> E["ShippingHelper.calculate phi ship theo vung"]
+    E --> F{Ap voucher?}
+    F -- Co --> G["Validate voucher: con han, con luot, du minOrder"]
+    G --> H["PromotionManager: giam gia theo SP"]
+    F -- Khong --> H
+    H --> I{Phuong thuc?}
+
+    I -- COD --> J["OrderRepo.createOrder status=PENDING tru stock + Pet=RESERVED"]
+    J --> K[Notification: Dat hang thanh cong]
+    K --> Success([Order Detail])
+
+    I -- VNPay --> L["OrderRepo.createOrder status=WAITING_PAYMENT"]
+    L --> M["VNPayHelper.buildPaymentUrl HMAC-SHA512"]
+    M --> N[VNPayWebView]
+    N --> O{Ket qua}
+    O -- Thanh cong --> P["completeVNPayOrder status=PENDING paymentStatus=PAID tru stock"]
+    P --> K
+    O -- That bai/Huy --> Q["Don van WAITING_PAYMENT khach co the tiep tuc thanh toan"]
+    Q --> Stop

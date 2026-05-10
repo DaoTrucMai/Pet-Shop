@@ -1,0 +1,103 @@
+%% ERD - PetShop (Firestore NoSQL được vẽ logic dạng quan hệ)
+erDiagram
+    USER ||--o{ ORDER : "đặt"
+    USER ||--o{ ADDRESS : "có"
+    USER ||--o{ NOTIFICATION : "nhận"
+    USER ||--o{ CHAT_SESSION : "tham gia"
+    USER ||--o{ CART : "sở hữu"
+
+    CATEGORY ||--o{ PET : "phân loại"
+    CATEGORY ||--o{ FOOD : "phân loại"
+
+    PET ||--o{ PET_MEDIA : "có"
+    FOOD ||--o{ FOOD_MEDIA : "có"
+
+    CART ||--o{ CART_ITEM : "chứa"
+    ORDER ||--o{ ORDER_ITEM : "chứa"
+    ORDER ||--o{ RETURN_REQUEST : "có thể"
+
+    VOUCHER ||--o{ VOUCHER_USAGE : "ghi nhận"
+    PROMOTION }o--o{ FOOD : "áp dụng"
+    PROMOTION }o--o{ PET : "áp dụng"
+
+    CHAT_SESSION ||--o{ CHAT_MESSAGE : "chứa"
+
+    USER {
+        string id PK
+        string fullName
+        string email
+        string role "ADMIN/CUSTOMER"
+        string status
+        int    totalOrders
+        double totalSpent
+    }
+    ORDER {
+        string id PK
+        string orderCode
+        string userId FK
+        string status
+        string paymentMethod "COD/VNPAY"
+        string paymentStatus
+        double totalAmount
+    }
+    ORDER_ITEM {
+        string productId
+        string productType "PET/FOOD"
+        int    quantity
+        double unitPrice
+        double subtotal
+    }
+    PET {
+        string id PK
+        string categoryId FK
+        string species
+        string breed
+        int    age
+        double price
+        string status "AVAILABLE/RESERVED/SOLD"
+    }
+    FOOD {
+        string id PK
+        string categoryId FK
+        string brand
+        string foodType
+        int    weightGram
+        int    stock
+        int    sold
+        double price
+    }
+    VOUCHER {
+        string id PK
+        string code
+        string type "PERCENT/FIXED/FREESHIP"
+        double discountValue
+        double minOrderAmount
+        int    usageLimit
+        int    usedCount
+    }
+    NOTIFICATION {
+        string id PK
+        string userId FK
+        string type "ORDER/PROMO/SYSTEM"
+        bool   isRead
+        string orderId
+    }
+    RETURN_REQUEST {
+        string id PK
+        string orderId FK
+        string status "PENDING/APPROVED/REFUNDED/REJECTED"
+        double refundAmount
+        string bankAccount
+    }
+    CHAT_SESSION {
+        string id PK
+        string userId FK
+        string title
+    }
+    CHAT_MESSAGE {
+        string id PK
+        string sessionId FK
+        string role "user/assistant"
+        string content
+        string imageUrl
+    }

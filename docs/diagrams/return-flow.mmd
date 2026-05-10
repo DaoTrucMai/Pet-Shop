@@ -1,0 +1,22 @@
+%% Flowchart - Hoan tra & Hoan tien
+flowchart TD
+    S0([Don DELIVERED/COMPLETED]) --> A[Khach nhan Yeu cau hoan tra]
+    A --> B[ReturnRequestActivity]
+    B --> C{Phuong thuc ban dau?}
+    C -- COD --> D["Bat buoc nhap: So tai khoan, Ten ngan hang"]
+    C -- VNPay --> E[Hoan ve the thanh toan goc]
+    D --> F["OrderRepo.requestReturn status=RETURN_REQUESTED"]
+    E --> F
+    F --> G[ReturnRepository.create ReturnRequest]
+    G --> H[Notification gui Khach hang]
+    H --> Idle([Admin nhan yeu cau])
+
+    Idle --> J[AdminReturnListActivity]
+    J --> K{Quyet dinh?}
+    K -- Approve --> L[status=RETURN_APPROVED]
+    L --> M[Admin chuyen khoan hoac goi API refund VNPay]
+    M --> N["status=REFUNDED paymentStatus=REFUNDED Doanh thu admin giam"]
+    N --> O[Notification: Da hoan tien]
+
+    K -- Reject --> P[status=COMPLETED + adminNote]
+    P --> Q[Notification: Yeu cau bi tu choi]

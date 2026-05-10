@@ -1,0 +1,43 @@
+%% Use Case Diagram - PetShop (layout 2 cot ngang)
+flowchart LR
+    subgraph CSet["KHACH HANG"]
+        direction TB
+        C((Customer))
+        UC1[Dang ky / Dang nhap / OTP / Google]
+        UC2[Xem & Tim kiem san pham]
+        UC3[Them vao gio hang]
+        UC4[Ap dung Voucher / Khuyen mai]
+        UC5[Dat hang & Thanh toan COD/VNPay]
+        UC6[Theo doi don / Huy don]
+        UC7[Yeu cau hoan tra & Hoan tien]
+        UC8[Nhan thong bao Real-time]
+        UC9[Chat AI ho tro]
+        UC10[Quan ly ho so & dia chi]
+        C --- UC1
+        C --- UC2
+        C --- UC3
+        C --- UC4
+        C --- UC5
+        C --- UC6
+        C --- UC7
+        C --- UC8
+        C --- UC9
+        C --- UC10
+    end
+
+    subgraph ASet["QUAN TRI VIEN"]
+        direction TB
+        A((Admin))
+        UA1[Dashboard Real-time]
+        UA2[Quan ly nguoi dung]
+        UA3[Quan ly Pet / Food / Danh muc]
+        UA4[Quan ly don hang]
+        UA5[Duyet yeu cau hoan tra]
+        UA6[Quan ly Voucher / Khuyen mai]
+        A --- UA1
+        A --- UA2
+        A --- UA3
+        A --- UA4
+        A --- UA5
+        A --- UA6
+    end

@@ -1,0 +1,30 @@
+%% Sequence Diagram - Thanh toán VNPay
+sequenceDiagram
+    autonumber
+    actor U as Khách hàng
+    participant CK as CheckoutActivity
+    participant OR as OrderRepository
+    participant FS as Firestore
+    participant VH as VNPayHelper
+    participant WV as VNPayWebView
+    participant VN as VNPay Sandbox
+    participant RA as VNPayResultActivity
+    participant NR as NotificationRepository
+
+    U->>CK: Nhấn "Thanh toán VNPay"
+    CK->>OR: createOrder(order, items, VNPAY)
+    OR->>FS: runTransaction(set order WAITING_PAYMENT)
+    FS-->>OR: success(orderId)
+    OR-->>CK: orderId
+    CK->>VH: buildPaymentUrl(orderCode, amount)
+    VH->>VH: TreeMap + URLEncode + HMAC-SHA512
+    VH-->>CK: paymentUrl
+    CK->>WV: open(paymentUrl)
+    WV->>VN: GET vpcpay.html?... 
+    U->>VN: Chọn ngân hàng + nhập OTP
+    VN-->>RA: redirect petshop://payment/vnpay-return?vnp_ResponseCode=00
+    RA->>OR: completeVNPayOrder(orderId)
+    OR->>FS: transaction(update PENDING + PAID + trừ stock + Pet=RESERVED)
+    FS-->>OR: success
+    OR->>NR: createNotificationAsync("Thanh toán thành công")
+    NR-->>U: badge thông báo cập nhật real-time

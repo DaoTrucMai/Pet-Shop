@@ -1,0 +1,33 @@
+%% Flowchart - Đăng ký / Đăng nhập
+flowchart TD
+    Start([Người dùng]) --> Choice{Hành động?}
+
+    Choice -- Đăng nhập Email --> L1[Nhập Email + Mật khẩu]
+    L1 --> L2[FirebaseAuth.signInWithEmailAndPassword]
+    L2 --> L3{Thành công?}
+    L3 -- Có --> L4[FirebaseHelper.getUserRole]
+    L4 --> L5{Role?}
+    L5 -- ADMIN --> AdminHome[AdminActivity]
+    L5 -- CUSTOMER --> CustomerHome[PetShopActivity]
+    L3 -- Không --> L6[parseAuthError → Toast tiếng Việt]
+
+    Choice -- Đăng nhập Google --> G1[GoogleSignIn Intent]
+    G1 --> G2[FirebaseAuth.signInWithCredential]
+    G2 --> G3{Mới?}
+    G3 -- Có --> G4[Tạo user role=CUSTOMER]
+    G4 --> CustomerHome
+    G3 -- Không --> L4
+
+    Choice -- Đăng ký --> R1[Nhập Tên + Email + Mật khẩu]
+    R1 --> R2[Sinh OTP 6 số]
+    R2 --> R3[EmailHelper.sendOTP \n SMTP Gmail]
+    R3 --> R4[Người dùng nhập OTP]
+    R4 --> R5{OTP đúng?}
+    R5 -- Không --> R6[Toast lỗi]
+    R5 -- Có --> R7[FirebaseAuth.createUserWithEmail]
+    R7 --> R8[Lưu Firestore users/uid \n role=CUSTOMER]
+    R8 --> CustomerHome
+
+    Choice -- Quên mật khẩu --> F1[Nhập Email]
+    F1 --> F2[FirebaseAuth.sendPasswordResetEmail]
+    F2 --> F3[Toast: Đã gửi link reset]
