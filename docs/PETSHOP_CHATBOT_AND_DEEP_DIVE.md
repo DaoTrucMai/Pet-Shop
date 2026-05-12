@@ -816,3 +816,319 @@ if (history != null) {
 | **Streaming** | OpenAI trả Server-Sent Events, OkHttp readUtf8Line từng chunk |
 | **Multimodal** | Resize 1024px + JPEG 80% + Base64 → nhúng vào data URI |
 | **Voice** | `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` — built-in Android |
+
+---
+
+# PHẦN III — CHATBOT SINH CÂU TRẢ LỜI RA SAO? (câu hỏi nâng cao)
+
+> Phần này giải thích **bên trong** AI sinh câu trả lời thế nào — đặc biệt khi câu hỏi NẰM NGOÀI scope shop.
+
+## III.1 TL;DR — Trả lời nhanh
+
+Chatbot có **2 nguồn kiến thức**:
+1. **Context (cheatsheet shop)** — app nhồi data Firestore vào `system message` mỗi request.
+2. **Kiến thức pre-training của AI** — gpt-4o-mini đã học sẵn lượng text khổng lồ trên Internet đến năm 2024.
+
+Khi user hỏi, AI **luôn đọc cả 2 nguồn** + **5 quy tắc** trong system prompt rồi mới sinh câu trả lời. Project có quy tắc số 3 cấm trả lời ngoài lề, nên câu out-of-scope sẽ bị từ chối.
+
+## III.2 🧩 2 nguồn kiến thức — phải phân biệt rõ
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                  KIẾN THỨC CỦA CHATBOT                       │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  NGUỒN 1: CONTEXT (Cheatsheet - DỮ LIỆU SHOP)                │
+│  ─────────────────────────────────────────────               │
+│  - Categories, 30 pet, 30 food, đơn hàng user,               │
+│    khuyến mãi, voucher                                       │
+│  - App fetch từ Firestore MỖI LẦN user hỏi                   │
+│  - Nhồi vào system message của prompt                        │
+│  - AI thấy như "tờ giấy gài bên cạnh"                        │
+│  - SAU khi trả lời xong AI QUÊN, lần sau gửi lại             │
+│                                                              │
+│                            +                                 │
+│                                                              │
+│  NGUỒN 2: PRE-TRAINING (Kiến thức học sẵn)                   │
+│  ─────────────────────────────────────────────               │
+│  - gpt-4o-mini đã đọc ~hàng nghìn tỷ từ trên Internet        │
+│    (Wikipedia, sách, báo, forum, GitHub...) đến 2024         │
+│  - Biết: Corgi nguồn gốc Wales, mèo ăn gì, cách chăm hamster,│
+│    tiếng Anh-Việt, toán, lịch sử, code...                    │
+│  - Encode vào BILLIONS of parameters trong model             │
+│  - KHÔNG có Internet realtime, KHÔNG search Google           │
+│  - KHÔNG biết shop của bạn (chưa từng được train)            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Hình dung trực quan:**
+
+AI giống 1 **học sinh giỏi sinh-vật-thú-y** vừa được **đưa cheatsheet về shop** trước khi vào phòng thi.
+- Câu hỏi về shop → mở cheatsheet xem.
+- Câu hỏi về kiến thức chung (Corgi là chó gì?) → không có trong cheatsheet → dùng kiến thức đã học.
+- Câu hỏi ngoài đề (cách nấu phở) → cheatsheet không có + lệnh thầy cấm trả lời ngoài lề → từ chối.
+
+## III.3 📋 System prompt thực tế của project
+
+Đây là phần "lệnh" app gửi cho AI trong mọi request:
+
+```java
+// File: app/src/main/java/com/example/petshop/viewmodel/ChatViewModel.java
+// (dòng 580-592)
+
+JsonObject sys = new JsonObject();
+sys.addProperty("role", "system");
+sys.addProperty("content",
+        "Bạn là trợ lý ảo PetShop. "
+                + "DỰA VÀO DỮ LIỆU SAU ĐỂ TRẢ LỜI:\n"
+                + userContext                       // ★ Cheatsheet 6 nguồn data
+                + "\nQUY TẮC: "
+                + "1. Chỉ sử dụng dữ liệu trên để tư vấn sản phẩm, đơn hàng, khuyến mãi. "
+                + "2. Nếu khách hỏi sản phẩm không có trong danh sách, "
+                +    "hãy nói shop hiện chưa có nhưng sẽ cập nhật sau. "
+                + "3. Không trả lời câu hỏi ngoài lề không liên quan thú cưng hoặc cửa hàng. "
+                + "4. Trả lời thân thiện, ngắn gọn, dùng tiếng Việt. "
+                + "5. Nếu khách hỏi chi tiết như xuất xứ, cân nặng, vaccine, thành phần, tồn kho, "
+                +    "hãy dùng đúng dữ liệu đã được cung cấp.");
+msgs.add(sys);
+```
+
+**5 quy tắc là "kỷ luật" cho AI:**
+- Quy tắc 1 → ưu tiên data shop
+- Quy tắc 2 → fallback khi thiếu sản phẩm
+- Quy tắc 3 → từ chối ngoài lề
+- Quy tắc 4 → văn phong
+- Quy tắc 5 → bám sát số liệu, không bịa
+
+→ Đây gọi là **prompt engineering** — kỹ thuật thiết kế prompt để điều khiển AI.
+
+## III.4 🌳 QUYẾT ĐỊNH 6 BƯỚC — Sơ đồ AI sinh câu trả lời
+
+Khi user hỏi 1 câu, bên trong AI thực hiện logic gần như sau (đây là cách AI "suy nghĩ", không phải code app):
+
+```
+USER: "X" (câu hỏi bất kỳ)
+   │
+   ▼
+┌─────────────────────────────────────────────┐
+│ AI nhận:                                    │
+│   - System prompt (luật + cheatsheet shop)  │
+│   - History 6 message gần nhất              │
+│   - Câu hỏi X hiện tại                      │
+└──────────────────┬──────────────────────────┘
+                   ▼
+        ┌──────────────────────┐
+        │ X có liên quan       │
+        │ thú cưng / shop ?    │
+        └──────┬───────┬───────┘
+               │ KHÔNG │ CÓ
+               ▼       ▼
+         [Bước 6A]   [Bước 1]
+                       │
+                       ▼
+            ┌──────────────────────┐
+            │ X có trong cheatsheet│
+            │ (userContext) ?      │
+            └──────┬───────┬───────┘
+                   │ CÓ    │ KHÔNG
+                   ▼       ▼
+              [Bước 2]   [Bước 3]
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │ AI có kiến thức nền  │
+                │ về X (pre-training)? │
+                └──────┬───────┬───────┘
+                       │ CÓ    │ KHÔNG
+                       ▼       ▼
+                  [Bước 4]   [Bước 5]
+```
+
+### 🟢 Bước 2 — Tìm thấy trong cheatsheet
+
+**Ví dụ:** "Shop có Corgi không? Giá bao nhiêu?"
+
+AI scan trong `userContext`:
+```
+- Pet: Corgi vàng | ID: pet-001 | Loài: DOG | Giống: Corgi | Tuổi: 3 tháng |
+  Giá: 5500000đ | Vaccine: FULL | Tẩy giun: Có
+```
+
+→ AI trả lời: *"Dạ shop có chó Corgi vàng 3 tháng tuổi, giá 5,500,000đ, đã tiêm vaccine đầy đủ và tẩy giun rồi ạ."*
+
+### 🟡 Bước 3 — Không có trong cheatsheet (cùng phạm vi shop)
+
+**Ví dụ:** "Shop có chó Husky không?"
+
+AI scan userContext → không thấy Husky → áp quy tắc 2 → trả lời:
+
+> *"Hiện tại shop chưa có chó Husky bạn ạ. Em sẽ cập nhật khi shop có thêm giống này. Bạn có muốn em gợi ý các giống chó khác hiện có không?"*
+
+→ AI **KHÔNG bịa giá Husky** vì có lệnh tuân thủ.
+
+### 🟡 Bước 4 — Liên quan thú cưng nhưng cần kiến thức nền
+
+**Ví dụ:** "Em mới nuôi mèo lần đầu, nên cho mèo con ăn mấy bữa 1 ngày?"
+
+→ Không có trong cheatsheet (shop không có hướng dẫn chăm sóc).
+→ Nhưng liên quan thú cưng (quy tắc 3 không cấm).
+→ AI dùng **kiến thức pre-training** trả lời:
+
+> *"Mèo con dưới 6 tháng nên ăn 4-5 bữa/ngày, cữ ăn nhỏ vì dạ dày bé. Bạn có thể tham khảo các loại pate trong shop ạ. Em thấy bên shop có Royal Canin Kitten phù hợp với mèo con đó."*
+
+→ Phần đầu lấy từ **pre-training**, phần sau từ **cheatsheet**.
+
+> ⚠️ **Đây là vùng RỦI RO** — AI có thể bịa số liệu. Gọi là **hallucination**.
+
+### 🔴 Bước 6A — Câu hỏi ngoài lề
+
+**Ví dụ:** "Hôm nay thời tiết Hà Nội thế nào?" hoặc "Cách nấu phở bò?"
+
+→ Không liên quan shop/thú cưng.
+→ Áp quy tắc 3 → từ chối:
+
+> *"Xin lỗi bạn, em chỉ hỗ trợ các câu hỏi về thú cưng, sản phẩm shop, đơn hàng và khuyến mãi thôi ạ."*
+
+→ AI **CÓ KHẢ NĂNG** trả lời (vì pre-training có), nhưng bị lệnh hệ thống cấm.
+
+## III.5 🎯 Bảng phân loại câu hỏi & nguồn trả lời
+
+| Loại câu hỏi | Ví dụ | Nguồn AI lấy | Kết quả |
+|---|---|---|---|
+| **Trong cheatsheet** | "Shop có Corgi không?" | Context (userContext) | Trả lời chính xác từ data shop |
+| **Không có trong cheatsheet (sản phẩm)** | "Shop có Husky không?" | Áp quy tắc số 2 | "Shop chưa có, sẽ cập nhật sau" |
+| **Hỏi đơn hàng** | "Đơn ORD123 đến đâu rồi?" | Context (orders user) | Trạng thái từ Firestore |
+| **Tổng quát về thú cưng** | "Nên chọn chó nào cho người mới?" | Pre-training + Context | Lai (knowledge + gợi ý pet shop có) |
+| **Chăm sóc/dinh dưỡng** | "Mèo con ăn gì?" | Pre-training chủ yếu | Kiến thức chung + đề xuất food shop |
+| **Mơ hồ** | "Pet này có dễ nuôi không?" | Context + Pre-training | Phân tích đặc tính từ data + loài |
+| **Off-topic** | "Cách nấu phở?" | Quy tắc số 3 (cấm) | Từ chối lịch sự |
+| **Tự thân** | "Em là model gì?" | AI tự biết | Có thể trả lời "Em là trợ lý PetShop" |
+
+## III.6 ⚠️ HALLUCINATION — Khi AI "BỊA"
+
+### Hallucination là gì?
+
+AI **không "biết"** thông tin theo nghĩa con người. Nó **đoán từ tiếp theo có xác suất cao nhất** dựa trên context. Khi không có data thực, nó có thể tự **bịa ra** câu nghe-hợp-lý-nhưng-SAI.
+
+### Ví dụ Hallucination có thể xảy ra
+
+**Tình huống 1: Bịa giá sản phẩm không có**
+- User: "Shop có chó Phú Quốc không?"
+- Nếu AI lười: "Có ạ, giá khoảng 8 triệu" ❌ → bịa giá
+
+**Tình huống 2: Bịa chi tiết pet**
+- User: "Corgi shop có tiêm vaccine gì?"
+- userContext chỉ ghi `Vaccine: FULL`
+- AI có thể "phóng đại": "Đã tiêm 5 mũi gồm carre, parvo, rabies..."
+- Tên 5 mũi cụ thể là AI **bịa**.
+
+**Tình huống 3: Trả lời sai dinh dưỡng**
+- User: "Royal Canin có gluten không?"
+- AI có thể tự đoán dựa trên brand → nếu sai → user dị ứng.
+
+### Cách project hạn chế hallucination
+
+Quay lại 5 quy tắc trong system message:
+
+```
+1. Chỉ sử dụng dữ liệu trên...
+5. Nếu khách hỏi chi tiết như xuất xứ, cân nặng, vaccine, thành phần, tồn kho,
+   hãy dùng đúng dữ liệu đã được cung cấp.
+```
+
+→ Quy tắc số 5 đặc biệt quan trọng — "neo" AI vào số liệu thực.
+
+> **Câu trả lời giáo viên về hallucination:**
+> "Em hạn chế hallucination bằng: (1) nhồi data thật vào system message; (2) đặt quy tắc 'chỉ dùng dữ liệu đã cung cấp'; (3) quy tắc số 2 ép AI fallback khi không có data. Tuy nhiên không thể loại bỏ hoàn toàn — đây là giới hạn của LLM. Cải tiến: thêm **post-validation** — parse câu trả lời AI, nếu chứa số/giá → verify với Firestore trước khi hiển thị."
+
+## III.7 🎨 SƠ ĐỒ TỔNG QUÁT — Toàn bộ quá trình SINH CÂU TRẢ LỜI
+
+```
+                  USER GÕ "X"
+                       │
+                       ▼
+        ╔══════════════════════════════════╗
+        ║   APP CHUẨN BỊ PAYLOAD JSON      ║
+        ╠══════════════════════════════════╣
+        ║                                  ║
+        ║  ┌────────────────────────────┐  ║
+        ║  │ system message (lệnh+data) │  ║
+        ║  │  - 5 quy tắc                │  ║
+        ║  │  - userContext (cheatsheet) │  ║
+        ║  └────────────────────────────┘  ║
+        ║  ┌────────────────────────────┐  ║
+        ║  │ 6 message history gần nhất │  ║
+        ║  │  - role: user / assistant   │  ║
+        ║  └────────────────────────────┘  ║
+        ║  ┌────────────────────────────┐  ║
+        ║  │ user message: X            │  ║
+        ║  │  (+ ảnh base64 nếu có)      │  ║
+        ║  └────────────────────────────┘  ║
+        ║                                  ║
+        ╚══════════════╦═══════════════════╝
+                       │ HTTPS POST
+                       ▼
+        ╔══════════════════════════════════╗
+        ║       OPENAI gpt-4o-mini         ║
+        ╠══════════════════════════════════╣
+        ║                                  ║
+        ║  ① Tokenize toàn bộ input        ║
+        ║       (tách chữ thành token)     ║
+        ║                                  ║
+        ║  ② Forward qua model             ║
+        ║       (billions of parameters    ║
+        ║        đã học sẵn → "kiến thức") ║
+        ║                                  ║
+        ║  ③ Áp dụng RULE từ system msg    ║
+        ║       (in/out scope, fallback)   ║
+        ║                                  ║
+        ║  ④ Tìm trong CONTEXT trước,      ║
+        ║     sau đó mới dùng pre-training ║
+        ║                                  ║
+        ║  ⑤ Sinh từng token một           ║
+        ║       (predict next word)        ║
+        ║                                  ║
+        ╚══════════════╦═══════════════════╝
+                       │ Stream SSE
+                       ▼
+        ╔══════════════════════════════════╗
+        ║         APP NHẬN STREAM          ║
+        ║   Render lên UI từng chữ một     ║
+        ║   Lưu vào Firestore khi xong     ║
+        ╚══════════════════════════════════╝
+```
+
+## III.8 🎓 CÂU TRẢ LỜI MẪU CHO GIÁO VIÊN
+
+**Q: "Chatbot lấy thông tin ở đâu để trả lời? Nếu câu hỏi ngoài shop thì AI sinh từ đâu?"**
+
+> **A:**
+> "AI có 2 nguồn kiến thức:
+>
+> **Nguồn 1: Context inject** — Mỗi lần user hỏi, app fetch toàn bộ data shop (categories, 30 pet, 30 food, đơn hàng user, khuyến mãi, voucher) từ Firestore, format thành text rồi nhồi vào `system message` của prompt. AI đọc text này như 'cheatsheet' để trả lời câu liên quan shop.
+>
+> **Nguồn 2: Kiến thức pre-training** — Model `gpt-4o-mini` đã được OpenAI train trên hàng nghìn tỷ từ trên Internet (Wikipedia, sách, forum...) đến năm 2024. Nó biết kiến thức chung về thú cưng, dinh dưỡng, chăm sóc — kể cả khi shop không cung cấp.
+>
+> Khi user hỏi:
+> - **Liên quan shop + có trong cheatsheet** (vd 'Shop có Corgi không?') → AI trích trực tiếp từ context.
+> - **Liên quan shop + không có trong cheatsheet** (vd 'Shop có Husky không?') → Áp quy tắc số 2 trong system prompt, trả lời 'shop chưa có'.
+> - **Liên quan thú cưng nhưng tổng quát** (vd 'Mèo con ăn gì?') → AI dùng kiến thức pre-training trả lời, có thể gợi ý thêm food shop có.
+> - **Ngoài lề** (vd 'Nấu phở thế nào?') → Áp quy tắc số 3, từ chối lịch sự.
+>
+> Em điều khiển AI bằng kỹ thuật **prompt engineering** — viết 5 quy tắc rõ trong system message. Đây là biến thể đơn giản của **RAG (Retrieval-Augmented Generation)**: retrieve data từ Firestore → augment vào prompt → AI generate dựa trên cả 2.
+>
+> Hạn chế: AI có thể **hallucinate** (bịa) nếu data context thiếu. Em hạn chế bằng quy tắc 'chỉ dùng dữ liệu cung cấp' và quy tắc số 5 'dùng đúng số liệu shop'. Cải tiến tương lai: thêm post-validation, parse câu trả lời và verify với Firestore."
+
+**Q phụ:** "AI có 'nhớ' không?"
+> Không nhớ qua các request. Mỗi lần gọi API là 1 phiên độc lập. App phải gửi lại history mỗi lần (em gửi 6 message gần nhất) để AI giữ ngữ cảnh hội thoại ngắn.
+
+**Q phụ:** "AI có internet realtime không?"
+> Không. gpt-4o-mini KHÔNG search Google trong khi trả lời. Toàn bộ kiến thức của nó nằm trong parameters đã được train sẵn (có cutoff date). Nếu cần realtime info, OpenAI có tool calling cho web search nhưng project chưa dùng.
+
+**Q phụ:** "Sao em không dùng AI free?"
+> gpt-4o-mini là model rẻ và mạnh nhất hiện tại cho project học. Em đã thử các model miễn phí (Llama local, Gemini free tier) nhưng:
+> - Llama local cần >8GB RAM → không chạy trên điện thoại
+> - Gemini free tier rate limit chặt + chất lượng tiếng Việt kém hơn
+> Để production em sẽ cân nhắc fine-tune model open-source riêng.
+
